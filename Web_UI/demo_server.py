@@ -22,6 +22,12 @@ def send_shot(x, y):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
+
     def log_message(self, format, *args):
         if self.path != "/events":
             super().log_message(format, *args)
@@ -50,6 +56,7 @@ class Handler(SimpleHTTPRequestHandler):
                         state = {
                             "revision": self.server.revision,
                             "maxShots": self.server.max_shots,
+                            "targetType": self.server.target_type,
                             "shots": list(self.server.shots),
                         }
                     if not changed:
@@ -59,7 +66,7 @@ class Handler(SimpleHTTPRequestHandler):
                         self.wfile.write(b"data: " + data + b"\n\n")
                         last_revision = state["revision"]
                     self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
             return
         super().do_GET()
@@ -76,14 +83,19 @@ class Handler(SimpleHTTPRequestHandler):
 
         if self.path == "/settings":
             try:
-                max_shots = self.read_json()["maxShots"]
+                settings = self.read_json()
+                max_shots = settings["maxShots"]
                 if isinstance(max_shots, bool) or not isinstance(max_shots, int) or not 1 <= max_shots <= 100:
                     raise ValueError
+                target_type = settings.get("targetType", self.server.target_type)
+                if isinstance(target_type, bool) or not isinstance(target_type, int) or target_type not in (10, 15):
+                    raise ValueError
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
-                self.send_error(400, "maxShots muss eine ganze Zahl zwischen 1 und 100 sein")
+                self.send_error(400, "Ungueltige Einstellungen")
                 return
             with self.server.state_changed:
                 self.server.max_shots = max_shots
+                self.server.target_type = target_type
                 self.server.shots[:] = self.server.shots[-max_shots:]
                 self.server.revision += 1
                 self.server.state_changed.notify_all()
@@ -115,13 +127,15 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", 8000), partial(Handler, directory=str(WEB_ROOT)))
+    server = ThreadingHTTPServer(("0.0.0.0", 8000), partial(Handler, directory=str(WEB_ROOT)))
     server.protocol_version = "HTTP/1.1"
     server.daemon_threads = True
     server.shots = []
     server.max_shots = 10
+    server.target_type = 10
     server.revision = 0
     server.state_changed = Condition()
-    print(f"Zielscheibe: {URL}  |  Zum Beenden Strg+C")
+    print(f"Zielscheibe auf diesem PC: {URL}")
+    print("Zugriff im LAN: http://<IP-Adresse dieses PCs>:8000  |  Zum Beenden Strg+C")
     webbrowser.open(URL)
     server.serve_forever()

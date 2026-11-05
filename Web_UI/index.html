@@ -8,6 +8,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="font.css" rel="stylesheet">
+	<link rel="icon" type="image" href="icon.png">
 	<style>
 		:root {
 			color-scheme: dark;
@@ -483,25 +484,8 @@
 				<div class="target-wrap">
 					<svg class="target" id="target-svg" viewBox="0 0 800 800" role="img" aria-label="Zielscheibe mit der letzten Python-Schussposition">
 						<circle class="paper" cx="400" cy="400" r="378"/>
-						<circle class="ring" cx="400" cy="400" r="340"/>
-						<circle class="ring-light" cx="400" cy="400" r="302"/>
-						<circle class="ring" cx="400" cy="400" r="264"/>
-						<circle class="ring-light" cx="400" cy="400" r="226"/>
-						<circle class="ring" cx="400" cy="400" r="188"/>
-						<circle class="ring-light" cx="400" cy="400" r="150"/>
-						<circle class="ring" cx="400" cy="400" r="112"/>
-						<circle class="ring-light" cx="400" cy="400" r="74"/>
-						<circle class="ring" cx="400" cy="400" r="37"/>
+						<g id="target-rings"></g>
 						<path class="crosshair" d="M22 400h756M400 22v756"/>
-						<text class="target-number" x="400" y="72">10</text>
-						<text class="target-number" x="400" y="110">9</text>
-						<text class="target-number" x="400" y="148">8</text>
-						<text class="target-number" x="400" y="186">7</text>
-						<text class="target-number" x="400" y="224">6</text>
-						<text class="target-number" x="400" y="262">5</text>
-						<text class="target-number" x="400" y="300">4</text>
-						<text class="target-number" x="400" y="338">3</text>
-						<text class="target-number" x="400" y="370">2</text>
 						<circle class="shot shot-last" id="live-shot" cx="400" cy="400" r="10" visibility="hidden"/>
 					</svg>
 				</div>
@@ -537,6 +521,7 @@
 	<script>
 		const marker = document.querySelector("#live-shot");
 		const target = document.querySelector("#target-svg");
+		const targetRings = document.querySelector("#target-rings");
 		const positionText = document.querySelector("#shot-position");
 		const liveState = document.querySelector(".live-state");
 		const shotList = document.querySelector("#shot-list");
@@ -545,7 +530,7 @@
 		const totalUnit = document.querySelector(".total-unit");
 		const shots = [];
 		let lastRevision = -1;
-		const settings = { maxShots: 10, zoom: true };
+		const settings = { maxShots: 10, targetType: 10, zoom: true };
 
 		try {
 			const savedSettings = JSON.parse(localStorage.getItem("eTargetSettings") || "{}");
@@ -560,6 +545,12 @@
 				<label class="settings-label" for="max-shots-input">Maximale Schussanzahl
 					<input class="settings-input" id="max-shots-input" type="number" min="1" max="100" required>
 				</label>
+				<label class="settings-label" for="target-type-input" style="margin-top:16px">Zielscheibe
+					<select class="settings-input" id="target-type-input">
+						<option value="10">10-Punkte-Scheibe</option>
+						<option value="15">15-Punkte-Scheibe</option>
+					</select>
+				</label>
 				<label class="settings-label" style="display:flex;align-items:center;margin-top:16px">
 					<input id="zoom-input" type="checkbox"> Auf Trefferbild zoomen
 				</label>
@@ -569,6 +560,7 @@
 				</div>
 			</form>`;
 		document.body.append(settingsDialog);
+		const targetTypeInput = settingsDialog.querySelector("#target-type-input");
 
 		const arrowStyle = document.createElement("style");
 		arrowStyle.textContent = ".shot-direction{display:inline-block;width:20px;flex:0 0 20px;color:#d7f36a;font-size:17px;line-height:1;text-align:center;transform-origin:center}";
@@ -578,8 +570,33 @@
 
 		function scoreShot(x, y) {
 			const distance = Math.hypot(x - 400, y - 400);
-			return Math.max(0, Math.round((10 - distance / 37.8) * 10) / 10);
+			const score = settings.targetType - distance / (378 / settings.targetType);
+			return Math.max(0, Math.round(score * 10) / 10);
 		}
+
+		function renderTargetRings() {
+			const step = 378 / settings.targetType;
+			const elements = [];
+			for (let score = 1; score < settings.targetType; score++) {
+				const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				ring.setAttribute("class", score % 2 ? "ring" : "ring-light");
+				ring.setAttribute("cx", "400");
+				ring.setAttribute("cy", "400");
+				ring.setAttribute("r", String(step * score));
+				elements.push(ring);
+			}
+			for (let score = 1; score <= settings.targetType; score++) {
+				const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+				const radius = (settings.targetType - score + 0.5) * step;
+				label.setAttribute("class", "target-number");
+				label.setAttribute("x", "400");
+				label.setAttribute("y", String(400 - radius));
+				label.textContent = String(score);
+				elements.push(label);
+			}
+			targetRings.replaceChildren(...elements);
+		}
+		renderTargetRings();
 
 		function renderScores() {
 			const total = shots.reduce((sum, shot) => sum + shot.score, 0);
@@ -588,7 +605,7 @@
 			shotLimitText.textContent = `${count} / ${settings.maxShots}`;
 			document.querySelector("#shot-average").textContent = formatScore(count ? total / count : 0, 2);
 			shotsCount.textContent = count;
-			totalUnit.textContent = `/ ${settings.maxShots * 10}`;
+			totalUnit.textContent = `/ ${settings.maxShots * settings.targetType}`;
 			shotList.replaceChildren(...shots.slice().reverse().map((shot, index) => {
 				const row = document.createElement("div");
 				const shotNumber = count - index;
@@ -626,6 +643,9 @@
 			if (state.revision === lastRevision) return;
 			lastRevision = state.revision;
 			settings.maxShots = state.maxShots;
+			settings.targetType = state.targetType === 15 ? 15 : 10;
+			targetTypeInput.value = String(settings.targetType);
+			renderTargetRings();
 			shots.splice(0, shots.length, ...state.shots.map((shot) => ({
 				...shot,
 				score: scoreShot(shot.x, shot.y),
@@ -658,24 +678,30 @@
 
 		settingsButton.addEventListener("click", () => {
 			settingsDialog.querySelector("#max-shots-input").value = settings.maxShots;
+			targetTypeInput.value = String(settings.targetType);
 			settingsDialog.querySelector("#zoom-input").checked = settings.zoom;
 			settingsDialog.showModal();
 		});
 		settingsDialog.querySelector("#cancel-settings").addEventListener("click", () => settingsDialog.close());
-		settingsDialog.querySelector("#settings-form").addEventListener("submit", (event) => {
+		settingsDialog.querySelector("#settings-form").addEventListener("submit", async (event) => {
 			event.preventDefault();
-			settings.zoom = settingsDialog.querySelector("#zoom-input").checked;
-			localStorage.setItem("eTargetSettings", JSON.stringify({ zoom: settings.zoom }));
-			fetch("/settings", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ maxShots: Number(settingsDialog.querySelector("#max-shots-input").value) })
-			}).then((response) => {
+			const zoom = settingsDialog.querySelector("#zoom-input").checked;
+			try {
+				const response = await fetch("/settings", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						maxShots: Number(settingsDialog.querySelector("#max-shots-input").value),
+						targetType: Number(targetTypeInput.value)
+					})
+				});
 				if (!response.ok) throw new Error("Einstellung konnte nicht gespeichert werden");
+				settings.zoom = zoom;
+				localStorage.setItem("eTargetSettings", JSON.stringify({ zoom }));
 				settingsDialog.close();
-			}).catch(() => {
+			} catch {
 				liveState.lastChild.textContent = "Einstellung konnte nicht gespeichert werden";
-			});
+			}
 		});
 
 	</script>

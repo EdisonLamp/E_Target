@@ -544,14 +544,13 @@
 		const shotLimitText = document.querySelector("#shot-total");
 		const totalUnit = document.querySelector(".total-unit");
 		const shots = [];
-		let lastId = 0;
+		let lastRevision = -1;
 		const settings = { maxShots: 10, zoom: true };
 
 		try {
-			Object.assign(settings, JSON.parse(localStorage.getItem("eTargetSettings") || "{}"));
+			const savedSettings = JSON.parse(localStorage.getItem("eTargetSettings") || "{}");
+			settings.zoom = savedSettings.zoom !== false;
 		} catch {}
-		settings.maxShots = Number.isInteger(settings.maxShots) ? Math.min(100, Math.max(1, settings.maxShots)) : 10;
-		settings.zoom = settings.zoom !== false;
 
 		const settingsButton = document.querySelector('button[aria-label="Einstellungen"]');
 		const settingsDialog = document.createElement("dialog");
@@ -613,44 +612,48 @@
 			});
 
 			if (settings.zoom && count) {
-				const centerX = shots.reduce((sum, shot) => sum + shot.x, 0) / count;
-				const centerY = shots.reduce((sum, shot) => sum + shot.y, 0) / count;
-				const spread = Math.max(...shots.map((shot) => Math.max(Math.abs(shot.x - centerX), Math.abs(shot.y - centerY))));
+				const spread = Math.max(...shots.map((shot) => Math.max(Math.abs(shot.x - 400), Math.abs(shot.y - 400))));
 				const size = Math.min(800, Math.max(180, spread * 2 + 120));
-				const viewX = Math.max(0, Math.min(800 - size, centerX - size / 2));
-				const viewY = Math.max(0, Math.min(800 - size, centerY - size / 2));
+				const viewX = 400 - size / 2;
+				const viewY = 400 - size / 2;
 				target.setAttribute("viewBox", `${viewX} ${viewY} ${size} ${size}`);
 			} else {
 				target.setAttribute("viewBox", "0 0 800 800");
 			}
 		}
 
-		async function updatePosition() {
-			try {
-				const response = await fetch("/position", { cache: "no-store" });
-				if (!response.ok) throw new Error("Position nicht verfügbar");
-				const position = await response.json();
-				if (position.id === lastId) return;
-				lastId = position.id;
-				positionText.textContent = `X ${position.x.toFixed(1)} / Y ${position.y.toFixed(1)}`;
+		function applyServerState(state) {
+			if (state.revision === lastRevision) return;
+			lastRevision = state.revision;
+			settings.maxShots = state.maxShots;
+			shots.splice(0, shots.length, ...state.shots.map((shot) => ({
+				...shot,
+				score: scoreShot(shot.x, shot.y),
+			})));
+			if (shots.length) {
+				const latest = shots[shots.length - 1];
+				positionText.textContent = `X ${latest.x.toFixed(1)} / Y ${latest.y.toFixed(1)}`;
 				liveState.lastChild.textContent = "Position live";
-				if (shots.length >= settings.maxShots) {
-					liveState.lastChild.textContent = "Maximale Schusszahl erreicht";
-					return;
-				}
-				shots.push({ x: position.x, y: position.y, score: scoreShot(position.x, position.y) });
-				renderScores();
+			} else {
+				positionText.textContent = "warte auf Python";
+				liveState.lastChild.textContent = "Warte auf Python";
+			}
+			renderScores();
+		}
+
+		const events = new EventSource("/events");
+		events.onmessage = (event) => applyServerState(JSON.parse(event.data));
+		events.onerror = () => {
+			liveState.lastChild.textContent = "Verbindung wird wiederhergestellt";
+		};
+
+		document.querySelector("#reset-button").addEventListener("click", async () => {
+			try {
+				const response = await fetch("/reset", { method: "POST" });
+				if (!response.ok) throw new Error("Reset fehlgeschlagen");
 			} catch {
 				liveState.lastChild.textContent = "Python nicht erreichbar";
 			}
-		}
-
-		document.querySelector("#reset-button").addEventListener("click", () => {
-			shots.length = 0;
-			marker.setAttribute("visibility", "hidden");
-			positionText.textContent = "warte auf Python";
-			liveState.lastChild.textContent = "Warte auf Python";
-			renderScores();
 		});
 
 		settingsButton.addEventListener("click", () => {
@@ -661,16 +664,20 @@
 		settingsDialog.querySelector("#cancel-settings").addEventListener("click", () => settingsDialog.close());
 		settingsDialog.querySelector("#settings-form").addEventListener("submit", (event) => {
 			event.preventDefault();
-			settings.maxShots = Number(settingsDialog.querySelector("#max-shots-input").value);
 			settings.zoom = settingsDialog.querySelector("#zoom-input").checked;
-			if (shots.length > settings.maxShots) shots.splice(0, shots.length - settings.maxShots);
-			localStorage.setItem("eTargetSettings", JSON.stringify(settings));
-			renderScores();
-			settingsDialog.close();
+			localStorage.setItem("eTargetSettings", JSON.stringify({ zoom: settings.zoom }));
+			fetch("/settings", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ maxShots: Number(settingsDialog.querySelector("#max-shots-input").value) })
+			}).then((response) => {
+				if (!response.ok) throw new Error("Einstellung konnte nicht gespeichert werden");
+				settingsDialog.close();
+			}).catch(() => {
+				liveState.lastChild.textContent = "Einstellung konnte nicht gespeichert werden";
+			});
 		});
 
-		updatePosition();
-		setInterval(updatePosition, 100);
 	</script>
 </body>
 </html>

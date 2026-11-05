@@ -7,7 +7,7 @@
 	<title>E-Target | Schussauswertung</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<link href="font.css" rel="stylesheet">
 	<style>
 		:root {
 			color-scheme: dark;
@@ -377,12 +377,37 @@
 			background: #222a25;
 			font-size: 12px;
 			font-weight: 500;
-			cursor: default;
+			cursor: pointer;
 		}
 
 		.action svg { width: 15px; height: 15px; color: #b6c1b4; }
 		.action-reset { border-color: #6b5149; color: #ffd2c5; }
 		.action-reset svg { color: var(--orange); }
+		.action:hover { border-color: #899783; background: #2a342d; }
+		.action-reset:hover { border-color: var(--orange); }
+
+		dialog {
+			width: min(360px, calc(100vw - 32px));
+			padding: 22px;
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			color: var(--text);
+			background: var(--panel);
+		}
+
+		dialog::backdrop { background: rgba(0, 0, 0, .65); }
+		.settings-title { margin: 0 0 18px; font-size: 16px; }
+		.settings-label { display: grid; gap: 8px; color: var(--muted); font-size: 12px; }
+		.settings-input {
+			width: 100%;
+			padding: 10px 12px;
+			border: 1px solid var(--line);
+			border-radius: 3px;
+			color: var(--text);
+			background: var(--ground);
+			font: inherit;
+		}
+		.settings-actions { margin-top: 20px; }
 
 		@keyframes arrive {
 			from { opacity: 0; transform: scale(.985); }
@@ -447,7 +472,7 @@
 				</div>
 			</div>
 			<div class="topbar-right">
-				<div class="live-state"><span class="live-dot"></span>Stand bereit</div>
+				<div class="live-state"><span class="live-dot"></span>Warte auf Python</div>
 				<div class="stand-label">Bahn<strong>04</strong></div>
 			</div>
 		</header>
@@ -456,7 +481,7 @@
 			<section class="range" aria-label="Zielscheibe mit eingezeichneten Treffern">
 				<div class="range-heading">Zielansicht</div>
 				<div class="target-wrap">
-					<svg class="target" viewBox="0 0 800 800" role="img" aria-label="Zehn Schüsse auf einer Zielscheibe">
+					<svg class="target" id="target-svg" viewBox="0 0 800 800" role="img" aria-label="Zielscheibe mit der letzten Python-Schussposition">
 						<circle class="paper" cx="400" cy="400" r="378"/>
 						<circle class="ring" cx="400" cy="400" r="340"/>
 						<circle class="ring-light" cx="400" cy="400" r="302"/>
@@ -477,49 +502,27 @@
 						<text class="target-number" x="400" y="300">4</text>
 						<text class="target-number" x="400" y="338">3</text>
 						<text class="target-number" x="400" y="370">2</text>
-						<circle class="shot" cx="421" cy="374" r="9"/>
-						<circle class="shot" cx="388" cy="414" r="9"/>
-						<circle class="shot" cx="432" cy="420" r="9"/>
-						<circle class="shot" cx="367" cy="382" r="9"/>
-						<circle class="shot" cx="405" cy="443" r="9"/>
-						<circle class="shot" cx="448" cy="390" r="9"/>
-						<circle class="shot" cx="378" cy="352" r="9"/>
-						<circle class="shot" cx="412" cy="407" r="9"/>
-						<circle class="shot" cx="393" cy="370" r="9"/>
-						<circle class="shot shot-last" cx="408" cy="389" r="10"/>
+						<circle class="shot shot-last" id="live-shot" cx="400" cy="400" r="10" visibility="hidden"/>
 					</svg>
 				</div>
-				<div class="target-caption">Trefferbild <strong>10 Schuss</strong></div>
+				<div class="target-caption">Letzte Position <strong id="shot-position">warte auf Python</strong></div>
 			</section>
-
 			<aside class="sidebar" aria-label="Ergebnis und Schussliste">
 				<section class="score-panel" aria-label="Gesamtergebnis">
 					<div class="panel-kicker"><span>Gesamtergebnis</span><span class="session-number">SERIE 01</span></div>
-					<div class="total"><span class="total-value">87,4</span><span class="total-unit">/ 100</span></div>
+					<div class="total"><span class="total-value" id="total-score">0,0</span><span class="total-unit">/ 100</span></div>
 					<div class="score-meta">
-						<div><span class="meta-label">Schüsse</span><span class="meta-value">10 / 10</span></div>
-						<div><span class="meta-label">Schnitt</span><span class="meta-value">8,74</span></div>
+						<div><span class="meta-label">Schüsse</span><span class="meta-value" id="shot-total">0 / 10</span></div>
+						<div><span class="meta-label">Schnitt</span><span class="meta-value" id="shot-average">0,00</span></div>
 					</div>
 				</section>
-
 				<section class="shots-panel" aria-label="Abgegebene Schüsse">
-					<div class="shots-header"><h2 class="shots-title">Schussfolge</h2><span class="shots-count">10</span></div>
-					<div class="shot-list">
-						<div class="shot-row is-last"><span class="shot-index">10</span><span class="shot-position">Letzter Schuss <span class="last-tag">Neu</span></span><span class="shot-score">9,8</span></div>
-						<div class="shot-row"><span class="shot-index">09</span><span class="shot-position">Treffer</span><span class="shot-score">8,9</span></div>
-						<div class="shot-row"><span class="shot-index">08</span><span class="shot-position">Treffer</span><span class="shot-score">8,5</span></div>
-						<div class="shot-row"><span class="shot-index">07</span><span class="shot-position">Treffer</span><span class="shot-score">9,1</span></div>
-						<div class="shot-row"><span class="shot-index">06</span><span class="shot-position">Treffer</span><span class="shot-score">8,2</span></div>
-						<div class="shot-row"><span class="shot-index">05</span><span class="shot-position">Treffer</span><span class="shot-score">8,7</span></div>
-						<div class="shot-row"><span class="shot-index">04</span><span class="shot-position">Treffer</span><span class="shot-score">9,0</span></div>
-						<div class="shot-row"><span class="shot-index">03</span><span class="shot-position">Treffer</span><span class="shot-score">8,1</span></div>
-						<div class="shot-row"><span class="shot-index">02</span><span class="shot-position">Treffer</span><span class="shot-score">8,6</span></div>
-						<div class="shot-row"><span class="shot-index">01</span><span class="shot-position">Treffer</span><span class="shot-score">8,5</span></div>
+					<div class="shots-header"><h2 class="shots-title">Schussfolge</h2><span class="shots-count" id="shots-count">0</span></div>
+					<div class="shot-list" id="shot-list">
 					</div>
 				</section>
-
 				<div class="actions" aria-label="Anzeigeoptionen">
-					<button class="action action-reset" type="button" aria-label="Reset">
+					<button class="action action-reset" id="reset-button" type="button" aria-label="Reset">
 						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7v5h5M5.2 12a7 7 0 1 0 1.6-4.4L4 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
 						Reset
 					</button>
@@ -531,5 +534,143 @@
 			</aside>
 		</main>
 	</div>
+	<script>
+		const marker = document.querySelector("#live-shot");
+		const target = document.querySelector("#target-svg");
+		const positionText = document.querySelector("#shot-position");
+		const liveState = document.querySelector(".live-state");
+		const shotList = document.querySelector("#shot-list");
+		const shotsCount = document.querySelector("#shots-count");
+		const shotLimitText = document.querySelector("#shot-total");
+		const totalUnit = document.querySelector(".total-unit");
+		const shots = [];
+		let lastId = 0;
+		const settings = { maxShots: 10, zoom: true };
+
+		try {
+			Object.assign(settings, JSON.parse(localStorage.getItem("eTargetSettings") || "{}"));
+		} catch {}
+		settings.maxShots = Number.isInteger(settings.maxShots) ? Math.min(100, Math.max(1, settings.maxShots)) : 10;
+		settings.zoom = settings.zoom !== false;
+
+		const settingsButton = document.querySelector('button[aria-label="Einstellungen"]');
+		const settingsDialog = document.createElement("dialog");
+		settingsDialog.innerHTML = `
+			<form id="settings-form">
+				<h2 class="settings-title">Einstellungen</h2>
+				<label class="settings-label" for="max-shots-input">Maximale Schussanzahl
+					<input class="settings-input" id="max-shots-input" type="number" min="1" max="100" required>
+				</label>
+				<label class="settings-label" style="display:flex;align-items:center;margin-top:16px">
+					<input id="zoom-input" type="checkbox"> Auf Trefferbild zoomen
+				</label>
+				<div class="actions settings-actions">
+					<button class="action" id="cancel-settings" type="button">Abbrechen</button>
+					<button class="action" type="submit">Speichern</button>
+				</div>
+			</form>`;
+		document.body.append(settingsDialog);
+
+		const arrowStyle = document.createElement("style");
+		arrowStyle.textContent = ".shot-direction{display:inline-block;width:20px;flex:0 0 20px;color:#d7f36a;font-size:17px;line-height:1;text-align:center;transform-origin:center}";
+		document.head.append(arrowStyle);
+
+		const formatScore = (score, digits = 1) => score.toFixed(digits).replace(".", ",");
+
+		function scoreShot(x, y) {
+			const distance = Math.hypot(x - 400, y - 400);
+			return Math.max(0, Math.round((10 - distance / 37.8) * 10) / 10);
+		}
+
+		function renderScores() {
+			const total = shots.reduce((sum, shot) => sum + shot.score, 0);
+			const count = shots.length;
+			document.querySelector("#total-score").textContent = formatScore(total);
+			shotLimitText.textContent = `${count} / ${settings.maxShots}`;
+			document.querySelector("#shot-average").textContent = formatScore(count ? total / count : 0, 2);
+			shotsCount.textContent = count;
+			totalUnit.textContent = `/ ${settings.maxShots * 10}`;
+			shotList.replaceChildren(...shots.slice().reverse().map((shot, index) => {
+				const row = document.createElement("div");
+				const shotNumber = count - index;
+				const angle = Math.atan2(shot.y - 400, shot.x - 400) * 180 / Math.PI;
+				row.className = `shot-row${index === 0 ? " is-last" : ""}`;
+				row.innerHTML = `<span class="shot-index">${String(shotNumber).padStart(2, "0")}</span><span class="shot-position"><span class="shot-direction" style="transform:rotate(${angle}deg)" aria-label="Schussrichtung">→</span>${index === 0 ? 'Letzter Schuss <span class="last-tag">Neu</span>' : "Treffer"}</span><span class="shot-score">${formatScore(shot.score)}</span>`;
+				return row;
+			}));
+
+			target.querySelectorAll(".shot-history-dot").forEach((dot) => dot.remove());
+			shots.forEach((shot) => {
+				const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				dot.setAttribute("class", "shot-history-dot");
+				dot.setAttribute("cx", shot.x);
+				dot.setAttribute("cy", shot.y);
+				dot.setAttribute("r", "5");
+				dot.setAttribute("fill", "#e34b4b");
+				dot.setAttribute("stroke", "#fff8ee");
+				dot.setAttribute("stroke-width", "1.5");
+				target.append(dot);
+			});
+
+			if (settings.zoom && count) {
+				const centerX = shots.reduce((sum, shot) => sum + shot.x, 0) / count;
+				const centerY = shots.reduce((sum, shot) => sum + shot.y, 0) / count;
+				const spread = Math.max(...shots.map((shot) => Math.max(Math.abs(shot.x - centerX), Math.abs(shot.y - centerY))));
+				const size = Math.min(800, Math.max(180, spread * 2 + 120));
+				const viewX = Math.max(0, Math.min(800 - size, centerX - size / 2));
+				const viewY = Math.max(0, Math.min(800 - size, centerY - size / 2));
+				target.setAttribute("viewBox", `${viewX} ${viewY} ${size} ${size}`);
+			} else {
+				target.setAttribute("viewBox", "0 0 800 800");
+			}
+		}
+
+		async function updatePosition() {
+			try {
+				const response = await fetch("/position", { cache: "no-store" });
+				if (!response.ok) throw new Error("Position nicht verfügbar");
+				const position = await response.json();
+				if (position.id === lastId) return;
+				lastId = position.id;
+				positionText.textContent = `X ${position.x.toFixed(1)} / Y ${position.y.toFixed(1)}`;
+				liveState.lastChild.textContent = "Position live";
+				if (shots.length >= settings.maxShots) {
+					liveState.lastChild.textContent = "Maximale Schusszahl erreicht";
+					return;
+				}
+				shots.push({ x: position.x, y: position.y, score: scoreShot(position.x, position.y) });
+				renderScores();
+			} catch {
+				liveState.lastChild.textContent = "Python nicht erreichbar";
+			}
+		}
+
+		document.querySelector("#reset-button").addEventListener("click", () => {
+			shots.length = 0;
+			marker.setAttribute("visibility", "hidden");
+			positionText.textContent = "warte auf Python";
+			liveState.lastChild.textContent = "Warte auf Python";
+			renderScores();
+		});
+
+		settingsButton.addEventListener("click", () => {
+			settingsDialog.querySelector("#max-shots-input").value = settings.maxShots;
+			settingsDialog.querySelector("#zoom-input").checked = settings.zoom;
+			settingsDialog.showModal();
+		});
+		settingsDialog.querySelector("#cancel-settings").addEventListener("click", () => settingsDialog.close());
+		settingsDialog.querySelector("#settings-form").addEventListener("submit", (event) => {
+			event.preventDefault();
+			settings.maxShots = Number(settingsDialog.querySelector("#max-shots-input").value);
+			settings.zoom = settingsDialog.querySelector("#zoom-input").checked;
+			if (shots.length > settings.maxShots) shots.splice(0, shots.length - settings.maxShots);
+			localStorage.setItem("eTargetSettings", JSON.stringify(settings));
+			renderScores();
+			settingsDialog.close();
+		});
+
+		updatePosition();
+		setInterval(updatePosition, 100);
+	</script>
 </body>
 </html>

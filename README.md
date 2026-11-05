@@ -14,3 +14,10 @@ The main improvements I made:
 
 
 This ist curently under Construction !!!
+
+
+<img width="1919" height="963" alt="image" src="https://github.com/user-attachments/assets/6b758ac3-fe9c-494b-8c9f-5eeafffe1954" />
+
+<img width="574" height="773" alt="image" src="https://github.com/user-attachments/assets/adbb5306-6334-44b5-bf3e-fb3bd30621d8" />
+
+

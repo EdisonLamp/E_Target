@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="de">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#171c19">
+	<title>E-Target | Schussauswertung</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="font.css" rel="stylesheet">
+	<link rel="icon" type="image" href="icon.png">
+	<style>
+		:root {
+			color-scheme: dark;
+			--ground: #171c19;
+			--panel: #202723;
+			--panel-soft: #252e29;
+			--line: #36413a;
+			--text: #f0f1e9;
+			--muted: #9aa59b;
+			--acid: #d7f36a;
+			--orange: #ff8059;
+			--sans: "DM Sans", "Segoe UI", sans-serif;
+			--display: "Barlow Condensed", "Arial Narrow", sans-serif;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			min-width: 320px;
+			min-height: 100vh;
+			margin: 0;
+			color: var(--text);
+			background:
+				radial-gradient(ellipse at 29% 42%, rgba(86, 112, 84, .13), transparent 49%),
+				var(--ground);
+			font-family: var(--sans);
+			font-size: 14px;
+		}
+
+		button { font: inherit; }
+
+		.app {
+			height: 100vh;
+			min-height: 100vh;
+			display: grid;
+			grid-template-rows: 76px minmax(0, 1fr);
+		}
+
+		.topbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 34px;
+			border-bottom: 1px solid var(--line);
+			background: rgba(23, 28, 25, .78);
+		}
+
+		.brand { display: flex; align-items: center; gap: 13px; }
+
+		.brand-mark {
+			width: 31px;
+			height: 31px;
+			display: grid;
+			place-items: center;
+			border: 1px solid var(--acid);
+			border-radius: 50%;
+			color: var(--acid);
+		}
+
+		.brand-mark svg { width: 19px; height: 19px; }
+
+		.brand-name {
+			font-family: var(--display);
+			font-size: 22px;
+			font-weight: 700;
+			letter-spacing: 0;
+			line-height: 1;
+		}
+
+		.brand-name span { color: var(--acid); }
+
+		.session-label {
+			margin-top: 4px;
+			color: var(--muted);
+			font-size: 10px;
+			letter-spacing: .12em;
+			text-transform: uppercase;
+		}
+
+		.topbar-right { display: flex; align-items: center; gap: 25px; }
+
+		.live-state {
+			display: flex;
+			align-items: center;
+			gap: 9px;
+			color: #c6d0c6;
+			font-size: 12px;
+		}
+
+		.live-dot {
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: var(--acid);
+			box-shadow: 0 0 12px rgba(215, 243, 106, .45);
+		}
+
+		.stand-label {
+			padding-left: 24px;
+			border-left: 1px solid var(--line);
+			color: var(--muted);
+			font-size: 11px;
+			letter-spacing: .09em;
+			text-transform: uppercase;
+		}
+
+		.stand-label strong { margin-left: 7px; color: var(--text); font-weight: 600; }
+
+		.layout {
+			min-height: 0;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 354px;
+			gap: 28px;
+			padding: 25px 28px 26px 34px;
+		}
+
+		.range {
+			min-width: 0;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			position: relative;
+			overflow: hidden;
+			border: 1px solid rgba(118, 140, 119, .13);
+			border-radius: 5px;
+			background:
+				linear-gradient(rgba(185, 206, 175, .025) 1px, transparent 1px),
+				linear-gradient(90deg, rgba(185, 206, 175, .025) 1px, transparent 1px),
+				radial-gradient(ellipse at 50% 49%, #29342d 0%, #222b26 54%, #1c231f 100%);
+			background-size: 42px 42px, 42px 42px, auto;
+		}
+
+		.range::after {
+			content: "";
+			position: absolute;
+			inset: 14px;
+			pointer-events: none;
+			border: 1px solid rgba(202, 217, 193, .07);
+		}
+
+		.range-heading {
+			position: absolute;
+			top: 26px;
+			left: 28px;
+			z-index: 1;
+			display: flex;
+			align-items: center;
+			gap: 11px;
+			color: #e4e9dc;
+			font-size: 11px;
+			letter-spacing: .11em;
+			text-transform: uppercase;
+		}
+
+		.range-heading::before {
+			content: "";
+			width: 18px;
+			height: 1px;
+			background: var(--acid);
+		}
+
+		.target-wrap {
+			width: min(100%, calc(100vh - 150px));
+			max-height: 100%;
+			aspect-ratio: 1;
+			display: grid;
+			place-items: center;
+			padding: 48px;
+			animation: arrive .7s ease-out both;
+		}
+
+		.target {
+			display: block;
+			width: 100%;
+			height: 100%;
+			overflow: visible;
+			filter: drop-shadow(0 20px 34px rgba(0, 0, 0, .28));
+		}
+
+		.paper { fill: #f0f0e8; }
+		.ring { fill: none; stroke: #202521; stroke-width: 2; }
+		.ring-light { fill: none; stroke: #9b9e93; stroke-width: 1; }
+		.crosshair { stroke: #a7aa9e; stroke-width: 1; stroke-dasharray: 3 6; }
+		.target-number {
+			fill: #545a51;
+			font-family: var(--sans);
+			font-size: 17px;
+			font-weight: 600;
+			text-anchor: middle;
+			dominant-baseline: middle;
+		}
+
+		.shot {
+			fill: var(--orange);
+			stroke: #fff8ee;
+			stroke-width: 3;
+			filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55));
+		}
+
+		.shot-last { fill: var(--acid); stroke: #263023; stroke-width: 4; }
+
+		.target-caption {
+			position: absolute;
+			right: 28px;
+			bottom: 25px;
+			color: #a5b0a5;
+			font-size: 10px;
+			letter-spacing: .1em;
+			text-transform: uppercase;
+		}
+
+		.target-caption strong { color: var(--text); font-weight: 500; }
+
+		.sidebar {
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+		}
+
+		.score-panel {
+			flex: 0 0 auto;
+			padding: 21px 22px 19px;
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			background: linear-gradient(145deg, #252e29, #202723 75%);
+		}
+
+		.panel-kicker {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			color: var(--muted);
+			font-size: 10px;
+			letter-spacing: .12em;
+			text-transform: uppercase;
+		}
+
+		.session-number { color: #bbc5b9; font-variant-numeric: tabular-nums; }
+
+		.total {
+			display: flex;
+			align-items: baseline;
+			gap: 8px;
+			margin: 8px 0 13px;
+		}
+
+		.total-value {
+			color: var(--text);
+			font-family: var(--display);
+			font-size: clamp(70px, 8vw, 94px);
+			font-weight: 600;
+			letter-spacing: 0;
+			line-height: .95;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.total-unit { color: #9ca79c; font-family: var(--display); font-size: 23px; }
+
+		.score-meta {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			padding-top: 14px;
+			border-top: 1px solid var(--line);
+		}
+
+		.score-meta div + div { padding-left: 18px; border-left: 1px solid var(--line); }
+		.meta-label { display: block; color: var(--muted); font-size: 10px; }
+		.meta-value { display: block; margin-top: 4px; color: var(--text); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+		.shots-panel {
+			min-height: 0;
+			flex: 1 1 auto;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			background: rgba(32, 39, 35, .78);
+		}
+
+		.shots-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 17px 19px 14px;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.shots-title { margin: 0; font-size: 12px; font-weight: 600; }
+
+		.shots-count {
+			min-width: 26px;
+			padding: 4px 7px;
+			border: 1px solid #465148;
+			border-radius: 3px;
+			color: #c2cbbd;
+			font-size: 10px;
+			text-align: center;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.shot-list { min-height: 0; overflow: auto; padding: 3px 10px 8px; scrollbar-color: #4a574d transparent; scrollbar-width: thin; }
+
+		.shot-row {
+			min-height: 48px;
+			display: grid;
+			grid-template-columns: 30px 1fr auto;
+			align-items: center;
+			gap: 10px;
+			padding: 0 10px;
+			border-bottom: 1px solid rgba(72, 84, 74, .48);
+			color: #bec7bd;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.shot-row:last-child { border-bottom: 0; }
+
+		.shot-index { color: #7f8b80; font-family: var(--display); font-size: 15px; }
+
+		.shot-position { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+
+		.shot-position::before {
+			content: "";
+			width: 5px;
+			height: 5px;
+			border-radius: 50%;
+			background: #ff8059;
+		}
+
+		.shot-score { color: var(--text); font-family: var(--display); font-size: 20px; font-weight: 600; }
+
+		.shot-row.is-last {
+			position: relative;
+			margin: 5px 0;
+			border: 1px solid rgba(215, 243, 106, .35);
+			border-radius: 3px;
+			background: rgba(215, 243, 106, .075);
+		}
+
+		.shot-row.is-last .shot-index,
+		.shot-row.is-last .shot-score { color: var(--acid); }
+
+		.shot-row.is-last .shot-position { color: #edf2df; }
+		.shot-row.is-last .shot-position::before { background: var(--acid); box-shadow: 0 0 8px rgba(215, 243, 106, .6); }
+
+		.last-tag {
+			margin-left: 2px;
+			color: var(--acid);
+			font-size: 9px;
+			letter-spacing: .08em;
+			text-transform: uppercase;
+		}
+
+		.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+		.action {
+			min-height: 46px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 9px;
+			border: 1px solid #465148;
+			border-radius: 4px;
+			color: #e0e5db;
+			background: #222a25;
+			font-size: 12px;
+			font-weight: 500;
+			cursor: pointer;
+		}
+
+		.action svg { width: 15px; height: 15px; color: #b6c1b4; }
+		.action-reset { border-color: #6b5149; color: #ffd2c5; }
+		.action-reset svg { color: var(--orange); }
+		.action:hover { border-color: #899783; background: #2a342d; }
+		.action-reset:hover { border-color: var(--orange); }
+
+		dialog {
+			width: min(360px, calc(100vw - 32px));
+			padding: 22px;
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			color: var(--text);
+			background: var(--panel);
+		}
+
+		dialog::backdrop { background: rgba(0, 0, 0, .65); }
+		.settings-title { margin: 0 0 18px; font-size: 16px; }
+		.settings-label { display: grid; gap: 8px; color: var(--muted); font-size: 12px; }
+		.settings-input {
+			width: 100%;
+			padding: 10px 12px;
+			border: 1px solid var(--line);
+			border-radius: 3px;
+			color: var(--text);
+			background: var(--ground);
+			font: inherit;
+		}
+		.settings-actions { margin-top: 20px; }
+
+		@keyframes arrive {
+			from { opacity: 0; transform: scale(.985); }
+			to { opacity: 1; transform: scale(1); }
+		}
+
+		@media (min-width: 1500px) {
+			.layout { grid-template-columns: minmax(0, 1fr) 390px; gap: 34px; padding-right: 36px; }
+			.target-wrap { width: min(100%, calc(100vh - 136px)); padding: 52px; }
+		}
+
+		@media (max-width: 900px) {
+			.app { grid-template-rows: 66px 1fr; }
+			.topbar { padding: 0 20px; }
+			.layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; padding: 16px; }
+			.target-wrap { width: min(100%, calc(100vh - 132px)); padding: 36px; }
+			.score-panel { padding: 17px; }
+			.total-value { font-size: 74px; }
+		}
+
+		@media (max-width: 680px) {
+			.app { height: auto; min-height: 100vh; display: block; }
+			.topbar { height: 62px; padding: 0 16px; }
+			.brand-mark { width: 28px; height: 28px; }
+			.brand-name { font-size: 20px; }
+			.session-label { font-size: 9px; }
+			.topbar-right { gap: 12px; }
+			.live-state { font-size: 0; gap: 0; }
+			.live-dot { width: 8px; height: 8px; }
+			.stand-label { padding-left: 12px; font-size: 9px; }
+			.stand-label strong { margin-left: 4px; }
+			.layout { display: flex; flex-direction: column; gap: 13px; padding: 12px; }
+			.range { min-height: 0; aspect-ratio: 1 / .96; flex: 0 0 auto; }
+			.range::after { inset: 8px; }
+			.range-heading { top: 17px; left: 17px; font-size: 9px; }
+			.target-wrap { width: 100%; max-height: none; padding: 38px; }
+			.target-caption { right: 17px; bottom: 14px; font-size: 8px; }
+			.sidebar { display: grid; grid-template-columns: 1fr; gap: 12px; }
+			.score-panel { padding: 16px 18px; }
+			.total { margin: 6px 0 10px; }
+			.total-value { font-size: 72px; }
+			.shots-panel { min-height: 305px; max-height: 360px; }
+			.shot-list { overflow: auto; }
+			.actions { padding-bottom: 4px; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="topbar">
+			<div class="brand">
+				<div class="brand-mark" aria-hidden="true">
+					<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor"/><circle cx="12" cy="12" r="3" stroke="currentColor"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor"/></svg>
+				</div>
+				<div>
+					<div class="brand-name">E<span>·</span>TARGET</div>
+					<div class="session-label">Schussauswertung</div>
+				</div>
+			</div>
+			<div class="topbar-right">
+				<div class="live-state"><span class="live-dot"></span>Warte auf Python</div>
+				<div class="stand-label">Bahn<strong>04</strong></div>
+			</div>
+		</header>
+
+		<main class="layout">
+			<section class="range" aria-label="Zielscheibe mit eingezeichneten Treffern">
+				<div class="range-heading">Zielansicht</div>
+				<div class="target-wrap">
+					<svg class="target" id="target-svg" viewBox="0 0 800 800" role="img" aria-label="Zielscheibe mit der letzten Python-Schussposition">
+						<circle class="paper" cx="400" cy="400" r="378"/>
+						<g id="target-rings"></g>
+						<path class="crosshair" d="M22 400h756M400 22v756"/>
+						<circle class="shot shot-last" id="live-shot" cx="400" cy="400" r="10" visibility="hidden"/>
+					</svg>
+				</div>
+				<div class="target-caption">Letzte Position <strong id="shot-position">warte auf Python</strong></div>
+			</section>
+			<aside class="sidebar" aria-label="Ergebnis und Schussliste">
+				<section class="score-panel" aria-label="Gesamtergebnis">
+					<div class="panel-kicker"><span>Gesamtergebnis</span><span class="session-number">SERIE 01</span></div>
+					<div class="total"><span class="total-value" id="total-score">0,0</span><span class="total-unit">/ 100</span></div>
+					<div class="score-meta">
+						<div><span class="meta-label">Schüsse</span><span class="meta-value" id="shot-total">0 / 10</span></div>
+						<div><span class="meta-label">Schnitt</span><span class="meta-value" id="shot-average">0,00</span></div>
+					</div>
+				</section>
+				<section class="shots-panel" aria-label="Abgegebene Schüsse">
+					<div class="shots-header"><h2 class="shots-title">Schussfolge</h2><span class="shots-count" id="shots-count">0</span></div>
+					<div class="shot-list" id="shot-list">
+					</div>
+				</section>
+				<div class="actions" aria-label="Anzeigeoptionen">
+					<button class="action action-reset" id="reset-button" type="button" aria-label="Reset">
+						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7v5h5M5.2 12a7 7 0 1 0 1.6-4.4L4 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						Reset
+					</button>
+					<button class="action" type="button" aria-label="Einstellungen">
+						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" stroke="currentColor" stroke-width="1.7"/><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1A1.7 1.7 0 0 0 4.2 12H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" stroke="currentColor" stroke-width="1.2"/></svg>
+						Einstellungen
+					</button>
+				</div>
+			</aside>
+		</main>
+	</div>
+	<script>
+		const marker = document.querySelector("#live-shot");
+		const target = document.querySelector("#target-svg");
+		const targetRings = document.querySelector("#target-rings");
+		const positionText = document.querySelector("#shot-position");
+		const liveState = document.querySelector(".live-state");
+		const shotList = document.querySelector("#shot-list");
+		const shotsCount = document.querySelector("#shots-count");
+		const shotLimitText = document.querySelector("#shot-total");
+		const totalUnit = document.querySelector(".total-unit");
+		const shots = [];
+		let lastRevision = -1;
+		const settings = { maxShots: 10, targetType: 10, zoom: true };
+
+		try {
+			const savedSettings = JSON.parse(localStorage.getItem("eTargetSettings") || "{}");
+			settings.zoom = savedSettings.zoom !== false;
+		} catch {}
+
+		const settingsButton = document.querySelector('button[aria-label="Einstellungen"]');
+		const settingsDialog = document.createElement("dialog");
+		settingsDialog.innerHTML = `
+			<form id="settings-form">
+				<h2 class="settings-title">Einstellungen</h2>
+				<label class="settings-label" for="max-shots-input">Maximale Schussanzahl
+					<input class="settings-input" id="max-shots-input" type="number" min="1" max="100" required>
+				</label>
+				<label class="settings-label" for="target-type-input" style="margin-top:16px">Zielscheibe
+					<select class="settings-input" id="target-type-input">
+						<option value="10">10-Punkte-Scheibe</option>
+						<option value="15">15-Punkte-Scheibe</option>
+					</select>
+				</label>
+				<label class="settings-label" style="display:flex;align-items:center;margin-top:16px">
+					<input id="zoom-input" type="checkbox"> Auf Trefferbild zoomen
+				</label>
+				<div class="actions settings-actions">
+					<button class="action" id="cancel-settings" type="button">Abbrechen</button>
+					<button class="action" type="submit">Speichern</button>
+				</div>
+			</form>`;
+		document.body.append(settingsDialog);
+		const targetTypeInput = settingsDialog.querySelector("#target-type-input");
+
+		const arrowStyle = document.createElement("style");
+		arrowStyle.textContent = ".shot-direction{display:inline-block;width:20px;flex:0 0 20px;color:#d7f36a;font-size:17px;line-height:1;text-align:center;transform-origin:center}";
+		document.head.append(arrowStyle);
+
+		const formatScore = (score, digits = 1) => score.toFixed(digits).replace(".", ",");
+
+		function scoreShot(x, y) {
+			const distance = Math.hypot(x - 400, y - 400);
+			const score = settings.targetType - distance / (378 / settings.targetType);
+			return Math.max(0, Math.round(score * 10) / 10);
+		}
+
+		function renderTargetRings() {
+			const step = 378 / settings.targetType;
+			const elements = [];
+			for (let score = 1; score < settings.targetType; score++) {
+				const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				ring.setAttribute("class", score % 2 ? "ring" : "ring-light");
+				ring.setAttribute("cx", "400");
+				ring.setAttribute("cy", "400");
+				ring.setAttribute("r", String(step * score));
+				elements.push(ring);
+			}
+			for (let score = 1; score <= settings.targetType; score++) {
+				const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+				const radius = (settings.targetType - score + 0.5) * step;
+				label.setAttribute("class", "target-number");
+				label.setAttribute("x", "400");
+				label.setAttribute("y", String(400 - radius));
+				label.textContent = String(score);
+				elements.push(label);
+			}
+			targetRings.replaceChildren(...elements);
+		}
+		renderTargetRings();
+
+		function renderScores() {
+			const total = shots.reduce((sum, shot) => sum + shot.score, 0);
+			const count = shots.length;
+			document.querySelector("#total-score").textContent = formatScore(total);
+			shotLimitText.textContent = `${count} / ${settings.maxShots}`;
+			document.querySelector("#shot-average").textContent = formatScore(count ? total / count : 0, 2);
+			shotsCount.textContent = count;
+			totalUnit.textContent = `/ ${settings.maxShots * settings.targetType}`;
+			shotList.replaceChildren(...shots.slice().reverse().map((shot, index) => {
+				const row = document.createElement("div");
+				const shotNumber = count - index;
+				const angle = Math.atan2(shot.y - 400, shot.x - 400) * 180 / Math.PI;
+				row.className = `shot-row${index === 0 ? " is-last" : ""}`;
+				row.innerHTML = `<span class="shot-index">${String(shotNumber).padStart(2, "0")}</span><span class="shot-position"><span class="shot-direction" style="transform:rotate(${angle}deg)" aria-label="Schussrichtung">→</span>${index === 0 ? 'Letzter Schuss <span class="last-tag">Neu</span>' : "Treffer"}</span><span class="shot-score">${formatScore(shot.score)}</span>`;
+				return row;
+			}));
+
+			target.querySelectorAll(".shot-history-dot").forEach((dot) => dot.remove());
+			shots.forEach((shot) => {
+				const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				dot.setAttribute("class", "shot-history-dot");
+				dot.setAttribute("cx", shot.x);
+				dot.setAttribute("cy", shot.y);
+				dot.setAttribute("r", "5");
+				dot.setAttribute("fill", "#e34b4b");
+				dot.setAttribute("stroke", "#fff8ee");
+				dot.setAttribute("stroke-width", "1.5");
+				target.append(dot);
+			});
+
+			if (settings.zoom && count) {
+				const spread = Math.max(...shots.map((shot) => Math.max(Math.abs(shot.x - 400), Math.abs(shot.y - 400))));
+				const size = Math.min(800, Math.max(180, spread * 2 + 120));
+				const viewX = 400 - size / 2;
+				const viewY = 400 - size / 2;
+				target.setAttribute("viewBox", `${viewX} ${viewY} ${size} ${size}`);
+			} else {
+				target.setAttribute("viewBox", "0 0 800 800");
+			}
+		}
+
+		function applyServerState(state) {
+			if (state.revision === lastRevision) return;
+			lastRevision = state.revision;
+			settings.maxShots = state.maxShots;
+			settings.targetType = state.targetType === 15 ? 15 : 10;
+			targetTypeInput.value = String(settings.targetType);
+			renderTargetRings();
+			shots.splice(0, shots.length, ...state.shots.map((shot) => ({
+				...shot,
+				score: scoreShot(shot.x, shot.y),
+			})));
+			if (shots.length) {
+				const latest = shots[shots.length - 1];
+				positionText.textContent = `X ${latest.x.toFixed(1)} / Y ${latest.y.toFixed(1)}`;
+				liveState.lastChild.textContent = "Position live";
+			} else {
+				positionText.textContent = "warte auf Python";
+				liveState.lastChild.textContent = "Warte auf Python";
+			}
+			renderScores();
+		}
+
+		const events = new EventSource("/events");
+		events.onmessage = (event) => applyServerState(JSON.parse(event.data));
+		events.onerror = () => {
+			liveState.lastChild.textContent = "Verbindung wird wiederhergestellt";
+		};
+
+		document.querySelector("#reset-button").addEventListener("click", async () => {
+			try {
+				const response = await fetch("/reset", { method: "POST" });
+				if (!response.ok) throw new Error("Reset fehlgeschlagen");
+			} catch {
+				liveState.lastChild.textContent = "Python nicht erreichbar";
+			}
+		});
+
+		settingsButton.addEventListener("click", () => {
+			settingsDialog.querySelector("#max-shots-input").value = settings.maxShots;
+			targetTypeInput.value = String(settings.targetType);
+			settingsDialog.querySelector("#zoom-input").checked = settings.zoom;
+			settingsDialog.showModal();
+		});
+		settingsDialog.querySelector("#cancel-settings").addEventListener("click", () => settingsDialog.close());
+		settingsDialog.querySelector("#settings-form").addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const zoom = settingsDialog.querySelector("#zoom-input").checked;
+			try {
+				const response = await fetch("/settings", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						maxShots: Number(settingsDialog.querySelector("#max-shots-input").value),
+						targetType: Number(targetTypeInput.value)
+					})
+				});
+				if (!response.ok) throw new Error("Einstellung konnte nicht gespeichert werden");
+				settings.zoom = zoom;
+				localStorage.setItem("eTargetSettings", JSON.stringify({ zoom }));
+				settingsDialog.close();
+			} catch {
+				liveState.lastChild.textContent = "Einstellung konnte nicht gespeichert werden";
+			}
+		});
+
+	</script>
+</body>
+</html>
